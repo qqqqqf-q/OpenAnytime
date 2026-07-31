@@ -44,10 +44,10 @@ function getRangeBadge(glucose: number) {
   }
 
   if (glucose > 7.8) {
-    return <Badge variant="warning">偏高</Badge>
+    return <Badge variant="outline">偏高</Badge>
   }
 
-  return <Badge variant="success">目标内</Badge>
+  return <Badge variant="secondary">目标内</Badge>
 }
 
 type ReadingsTableProps = {

@@ -1,57 +1,56 @@
-import type { LucideIcon } from "lucide-react"
+import type { ReactNode } from "react"
 
 import {
   Card,
-  CardContent,
+  CardAction,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
 type MetricCardProps = {
-  icon: LucideIcon
   label: string
   value: string
   unit: string
+  summary: ReactNode
   description: string
+  action?: ReactNode
   loading: boolean
 }
 
 export function MetricCard({
-  icon: Icon,
   label,
   value,
   unit,
+  summary,
   description,
+  action,
   loading,
 }: MetricCardProps) {
   return (
-    <Card size="sm" className="min-w-0">
+    <Card className="@container/card">
       <CardHeader>
-        <CardTitle className="flex min-w-0 items-center gap-2">
-          <Icon
-            className="size-4 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <span className="truncate">{label}</span>
-        </CardTitle>
-        <CardDescription className="truncate">{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
+        <CardDescription>{label}</CardDescription>
         {loading ? (
-          <Skeleton className="h-8 w-28" />
+          <Skeleton className="h-9 w-32" />
         ) : (
-          <div className="flex min-w-0 items-baseline gap-1.5">
-            <span className="truncate text-2xl font-semibold tabular-nums sm:text-3xl">
-              {value}
-            </span>
-            <span className="shrink-0 text-xs text-muted-foreground">
+          <CardTitle className="flex items-baseline gap-1.5 text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {value}
+            <span className="text-xs font-normal text-muted-foreground">
               {unit}
             </span>
-          </div>
+          </CardTitle>
         )}
-      </CardContent>
+        {action ? <CardAction>{action}</CardAction> : null}
+      </CardHeader>
+      <CardFooter className="flex-col items-start gap-1.5 text-sm">
+        <div className="line-clamp-1 flex items-center gap-2 font-medium">
+          {summary}
+        </div>
+        <div className="text-muted-foreground">{description}</div>
+      </CardFooter>
     </Card>
   )
 }

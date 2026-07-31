@@ -4,11 +4,12 @@ import {
   Clock3Icon,
   DatabaseIcon,
   DropletsIcon,
+  MinusIcon,
   MoonIcon,
   RefreshCwIcon,
   SunIcon,
-  ThermometerIcon,
-  WifiIcon,
+  TrendingDownIcon,
+  TrendingUpIcon,
 } from "lucide-react"
 
 import { MetricCard } from "@/components/dashboard/metric-card"
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Tooltip,
   TooltipContent,
@@ -40,7 +41,6 @@ const GlucoseChart = React.lazy(() =>
   }))
 )
 
-const RANGE_OPTIONS = [3, 6, 12, 24] as const
 const REFRESH_INTERVAL_MS = 60_000
 const STALE_AFTER_MS = 10 * 60_000
 
@@ -63,23 +63,53 @@ function getConnectionState(latest: Reading | null, refreshedAt: Date | null) {
 
   const age = refreshedAt.getTime() - new Date(latest.timestamp).getTime()
   if (!Number.isFinite(age) || age > STALE_AFTER_MS) {
-    return { label: "数据延迟", variant: "warning" as const }
+    return { label: "数据延迟", variant: "destructive" as const }
   }
 
-  return { label: "实时更新", variant: "success" as const }
+  return { label: "实时更新", variant: "secondary" as const }
 }
 
 function getTrend(readings: Reading[]) {
   if (readings.length < 2) {
-    return "暂无趋势"
+    return { label: "暂无趋势", delta: "--", icon: MinusIcon }
   }
 
   const change = readings.at(-1)!.glucose_mmol - readings.at(-2)!.glucose_mmol
   if (Math.abs(change) < 0.05) {
-    return "较上次持平"
+    return { label: "较上次持平", delta: "0.0", icon: MinusIcon }
   }
 
-  return `较上次${change > 0 ? "上升" : "下降"} ${Math.abs(change).toFixed(1)}`
+  return {
+    label: `较上次${change > 0 ? "上升" : "下降"}`,
+    delta: `${change > 0 ? "+" : ""}${change.toFixed(1)}`,
+    icon: change > 0 ? TrendingUpIcon : TrendingDownIcon,
+  }
+}
+
+function getRangeLabel(glucose: number | undefined) {
+  if (glucose === undefined) {
+    return "暂无读数"
+  }
+  if (glucose < 3.9) {
+    return "低于范围"
+  }
+  if (glucose > 7.8) {
+    return "高于范围"
+  }
+  return "目标范围内"
+}
+
+function getSignalLabel(rssi: number | null | undefined) {
+  if (rssi === null || rssi === undefined) {
+    return "暂无信号"
+  }
+  if (rssi >= -60) {
+    return "信号良好"
+  }
+  if (rssi >= -80) {
+    return "信号一般"
+  }
+  return "信号较弱"
 }
 
 export function App() {
@@ -157,6 +187,7 @@ export function App() {
   const latest = readings.at(-1) ?? null
   const connection = getConnectionState(latest, refreshedAt)
   const trend = getTrend(readings)
+  const TrendIcon = trend.icon
 
   const toggleTheme = () => {
     const isDark = document.documentElement.classList.contains("dark")
@@ -164,32 +195,56 @@ export function App() {
   }
 
   return (
-    <div className="min-h-svh bg-background">
-      <header className="border-b bg-background/95">
-        <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <DropletsIcon className="size-5" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold">OpenAnytime</h1>
-              <p className="truncate text-sm text-muted-foreground">
-                鱼跃 5 HSE · 本地连续血糖监测
-              </p>
-            </div>
-          </div>
+    <div className="flex min-h-svh flex-col bg-background">
+      <header className="flex h-12 shrink-0 items-center border-b">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2 px-4 lg:px-6">
+          <DropletsIcon className="size-4" aria-hidden="true" />
+          <h1 className="text-base font-medium">OpenAnytime</h1>
+          <Separator
+            orientation="vertical"
+            className="mx-1 hidden h-4 sm:block data-vertical:self-auto"
+          />
+          <span className="hidden text-sm text-muted-foreground sm:inline">
+            鱼跃 5 HSE
+          </span>
 
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <Badge variant={connection.variant}>
               <ActivityIcon data-icon="inline-start" aria-hidden="true" />
               {connection.label}
             </Badge>
+            <div className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
+              <Clock3Icon className="size-3.5" aria-hidden="true" />
+              <span className="tabular-nums">
+                {formatRefreshTime(refreshedAt)}
+              </span>
+            </div>
             <Tooltip>
               <TooltipTrigger
                 render={
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-sm"
+                    aria-label="立即刷新数据"
+                    disabled={isRefreshing}
+                    onClick={() => void load()}
+                  />
+                }
+              >
+                {isRefreshing ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />
+                )}
+              </TooltipTrigger>
+              <TooltipContent>立即刷新数据</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label="切换明暗主题"
                     onClick={toggleTheme}
                   />
@@ -212,125 +267,93 @@ export function App() {
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <section
-          className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"
-          aria-label="数据时间范围"
-        >
-          <ToggleGroup
-            value={[String(rangeHours)]}
-            onValueChange={(values) => {
-              const nextValue = Number(values[0])
-              if (
-                RANGE_OPTIONS.includes(
-                  nextValue as (typeof RANGE_OPTIONS)[number]
-                )
-              ) {
-                setRangeHours(nextValue)
-              }
-            }}
-            variant="outline"
-            size="sm"
-            spacing={0}
-            aria-label="选择图表时间范围"
+      <main className="@container/main flex flex-1 flex-col">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
+          {error ? (
+            <div className="px-4 lg:px-6">
+              <Alert variant="destructive">
+                <DatabaseIcon aria-hidden="true" />
+                <AlertTitle>无法读取本地数据库</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            </div>
+          ) : null}
+
+          <section
+            className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card"
+            aria-label="最新读数"
           >
-            {RANGE_OPTIONS.map((hours) => (
-              <ToggleGroupItem key={hours} value={String(hours)}>
-                {hours} 小时
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+            <MetricCard
+              label="当前血糖"
+              value={latest?.glucose_mmol.toFixed(1) ?? "--"}
+              unit="mmol/L"
+              action={<Badge variant="outline">{trend.delta}</Badge>}
+              summary={
+                <>
+                  {trend.label}
+                  <TrendIcon className="size-4" aria-hidden="true" />
+                </>
+              }
+              description={getRangeLabel(latest?.glucose_mmol)}
+              loading={isInitialLoading}
+            />
+            <MetricCard
+              label="血糖换算"
+              value={latest?.glucose_mg.toString() ?? "--"}
+              unit="mg/dL"
+              action={<Badge variant="outline">同步</Badge>}
+              summary="与当前读数同步"
+              description="由 mmol/L 自动换算"
+              loading={isInitialLoading}
+            />
+            <MetricCard
+              label="传感器温度"
+              value={latest?.temperature_c.toFixed(1) ?? "--"}
+              unit="°C"
+              action={<Badge variant="outline">广播</Badge>}
+              summary="来自最近一次采样"
+              description="设备广播记录中的温度"
+              loading={isInitialLoading}
+            />
+            <MetricCard
+              label="BLE 信号"
+              value={latest?.rssi?.toString() ?? "--"}
+              unit="dBm"
+              action={
+                <Badge variant="outline">{getSignalLabel(latest?.rssi)}</Badge>
+              }
+              summary="蓝牙广播信号强度"
+              description="数值越接近 0，信号越强"
+              loading={isInitialLoading}
+            />
+          </section>
 
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock3Icon className="size-4" aria-hidden="true" />
-            <span className="tabular-nums">
-              更新于 {formatRefreshTime(refreshedAt)}
+          <section className="px-4 lg:px-6" aria-label="血糖趋势图">
+            <React.Suspense fallback={<ChartFallback />}>
+              <GlucoseChart
+                readings={visibleReadings}
+                rangeHours={rangeHours}
+                loading={isInitialLoading}
+                onRangeChange={setRangeHours}
+              />
+            </React.Suspense>
+          </section>
+
+          <section className="px-4 lg:px-6" aria-label="最近读数表格">
+            <ReadingsTable
+              readings={visibleReadings}
+              loading={isInitialLoading}
+            />
+          </section>
+
+          <Separator className="mt-auto" />
+          <footer className="flex flex-col justify-between gap-1 px-4 text-xs text-muted-foreground sm:flex-row lg:px-6">
+            <span>逆向研究数据，不用于医疗诊断。</span>
+            <span>
+              {visibleReadings.length} 条记录 · 最近 {rangeHours} 小时
             </span>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label="立即刷新数据"
-                    disabled={isRefreshing}
-                    onClick={() => void load()}
-                  />
-                }
-              >
-                <RefreshCwIcon
-                  className={isRefreshing ? "animate-spin" : undefined}
-                  data-icon="inline-start"
-                  aria-hidden="true"
-                />
-              </TooltipTrigger>
-              <TooltipContent>立即刷新数据</TooltipContent>
-            </Tooltip>
-          </div>
-        </section>
-
-        {error ? (
-          <Alert variant="destructive">
-            <DatabaseIcon aria-hidden="true" />
-            <AlertTitle>无法读取本地数据库</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <section
-          className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-          aria-label="最新读数"
-        >
-          <MetricCard
-            icon={DropletsIcon}
-            label="当前血糖"
-            value={latest?.glucose_mmol.toFixed(1) ?? "--"}
-            unit="mmol/L"
-            description={trend}
-            loading={isInitialLoading}
-          />
-          <MetricCard
-            icon={ActivityIcon}
-            label="血糖换算"
-            value={latest?.glucose_mg.toString() ?? "--"}
-            unit="mg/dL"
-            description="与当前读数同步"
-            loading={isInitialLoading}
-          />
-          <MetricCard
-            icon={ThermometerIcon}
-            label="传感器温度"
-            value={latest?.temperature_c.toFixed(1) ?? "--"}
-            unit="°C"
-            description="来自广播记录"
-            loading={isInitialLoading}
-          />
-          <MetricCard
-            icon={WifiIcon}
-            label="BLE 信号"
-            value={latest?.rssi?.toString() ?? "--"}
-            unit="dBm"
-            description="数值越接近 0 越强"
-            loading={isInitialLoading}
-          />
-        </section>
-
-        <React.Suspense fallback={<ChartFallback />}>
-          <GlucoseChart
-            readings={visibleReadings}
-            rangeHours={rangeHours}
-            loading={isInitialLoading}
-          />
-        </React.Suspense>
-        <ReadingsTable readings={visibleReadings} loading={isInitialLoading} />
-
-        <Separator />
-        <footer className="flex flex-col justify-between gap-1 pb-2 text-xs text-muted-foreground sm:flex-row">
-          <span>逆向研究数据，不用于医疗诊断。</span>
-          <span>
-            {visibleReadings.length} 条记录 · 最近 {rangeHours} 小时
-          </span>
-        </footer>
+          </footer>
+        </div>
       </main>
     </div>
   )
@@ -344,7 +367,7 @@ function ChartFallback() {
         <CardDescription>正在准备图表</CardDescription>
       </CardHeader>
       <CardContent>
-        <Skeleton className="h-80 w-full sm:h-96" />
+        <Skeleton className="h-[280px] w-full sm:h-[340px]" />
       </CardContent>
     </Card>
   )

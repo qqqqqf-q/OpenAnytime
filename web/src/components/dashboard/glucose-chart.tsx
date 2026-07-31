@@ -1,14 +1,13 @@
 import { ChartNoAxesCombinedIcon } from "lucide-react"
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ReferenceArea,
   XAxis,
   YAxis,
 } from "recharts"
 
-import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardAction,
@@ -31,12 +30,15 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { Reading } from "@/lib/api"
+
+const RANGE_OPTIONS = [3, 6, 12, 24] as const
 
 const chartConfig = {
   glucose_mmol: {
     label: "血糖 mmol/L",
-    color: "var(--chart-1)",
+    color: "var(--primary)",
   },
 } satisfies ChartConfig
 
@@ -60,35 +62,100 @@ type GlucoseChartProps = {
   readings: Reading[]
   rangeHours: number
   loading: boolean
+  onRangeChange: (rangeHours: number) => void
+}
+
+function RangeToggle({
+  rangeHours,
+  onRangeChange,
+  className,
+}: {
+  rangeHours: number
+  onRangeChange: (rangeHours: number) => void
+  className?: string
+}) {
+  return (
+    <ToggleGroup
+      multiple={false}
+      value={[String(rangeHours)]}
+      onValueChange={(values) => {
+        const nextValue = Number(values[0])
+        if (
+          RANGE_OPTIONS.includes(nextValue as (typeof RANGE_OPTIONS)[number])
+        ) {
+          onRangeChange(nextValue)
+        }
+      }}
+      variant="outline"
+      size="sm"
+      spacing={0}
+      aria-label="选择图表时间范围"
+      className={className}
+    >
+      {RANGE_OPTIONS.map((hours) => (
+        <ToggleGroupItem key={hours} value={String(hours)}>
+          {hours}h
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
 }
 
 export function GlucoseChart({
   readings,
   rangeHours,
   loading,
+  onRangeChange,
 }: GlucoseChartProps) {
   return (
-    <Card>
+    <Card className="@container/card">
       <CardHeader>
         <CardTitle>血糖趋势</CardTitle>
-        <CardDescription>最近 {rangeHours} 小时的广播解码结果</CardDescription>
+        <CardDescription>
+          最近 {rangeHours} 小时，参考范围 3.9–7.8 mmol/L
+        </CardDescription>
         <CardAction>
-          <Badge variant="success">目标范围 3.9–7.8</Badge>
+          <RangeToggle
+            rangeHours={rangeHours}
+            onRangeChange={onRangeChange}
+            className="hidden *:data-[slot=toggle-group-item]:px-3 sm:flex"
+          />
         </CardAction>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+        <div className="mb-4 px-2 sm:hidden">
+          <RangeToggle
+            rangeHours={rangeHours}
+            onRangeChange={onRangeChange}
+            className="w-full *:data-[slot=toggle-group-item]:flex-1"
+          />
+        </div>
         {loading ? (
-          <Skeleton className="h-80 w-full" />
+          <Skeleton className="h-[280px] w-full" />
         ) : readings.length ? (
           <ChartContainer
             config={chartConfig}
-            className="aspect-auto h-80 w-full sm:h-96"
+            className="aspect-auto h-[280px] w-full sm:h-[340px]"
           >
-            <LineChart
+            <AreaChart
               accessibilityLayer
               data={readings}
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
             >
+              <defs>
+                <linearGradient id="fillGlucose" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor="var(--color-glucose_mmol)"
+                    stopOpacity={0.35}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--color-glucose_mmol)"
+                    stopOpacity={0.03}
+                  />
+                </linearGradient>
+              </defs>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="timestamp"
@@ -112,7 +179,7 @@ export function GlucoseChart({
               <ReferenceArea
                 y1={3.9}
                 y2={7.8}
-                fill="var(--success)"
+                fill="var(--muted-foreground)"
                 fillOpacity={0.08}
                 stroke="transparent"
               />
@@ -125,19 +192,19 @@ export function GlucoseChart({
                   />
                 }
               />
-              <Line
+              <Area
                 dataKey="glucose_mmol"
-                type="monotone"
+                type="natural"
+                fill="url(#fillGlucose)"
                 stroke="var(--color-glucose_mmol)"
                 strokeWidth={2}
-                dot={false}
                 activeDot={{ r: 4 }}
                 isAnimationActive={false}
               />
-            </LineChart>
+            </AreaChart>
           </ChartContainer>
         ) : (
-          <Empty className="min-h-80">
+          <Empty className="min-h-[280px]">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <ChartNoAxesCombinedIcon aria-hidden="true" />
