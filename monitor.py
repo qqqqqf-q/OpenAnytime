@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-鱼跃安耐糖 CT5 持续监控 — SQLite 存储
+鱼跃 5 HSE（安耐糖 / Anytime CGM）持续监控 — SQLite 存储
 用法: /tmp/bleak-venv/bin/python3 monitor.py
 """
 import asyncio, struct, json, sqlite3, os, time

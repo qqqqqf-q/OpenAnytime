@@ -1,13 +1,15 @@
 # Anytime CGM 逆向全记录
 
 > 按时间顺序记录 2026-07-31 的所有操作、发现、死胡同、突破。
+>
+> 产品实物型号由用户确认为 **鱼跃 5 HSE**。本文出现的 `CT5` 保留自当时记录的日志字段和类名；由于原始 logcat 与反编译产物未收入仓库，这些内部字符串仍待复核，不能作为产品型号依据。
 
 ---
 
 ## Phase 1: 问题确认 (09:30-09:45)
 
 ### 用户描述
-- 鱼跃安耐糖 CT5 CGM（动态血糖仪），贴在身上过了一晚上
+- 鱼跃 5 HSE（安耐糖 / Anytime CGM，动态血糖仪），贴在身上过了一晚上
 - 手机蓝牙设置里能看到 "anytime" 设备，但 app 里显示"没新数据"
 - 已重装 app、重启手机，无效
 - 不能 ADB 连手机（后来解决了）
@@ -208,7 +210,7 @@ ist.com.sdk.AlgorithmTools     ← JNI 封装 (decodeCT, algorithm)
 ist.com.sdk.ConvertTools       ← 加密/解密 (encode, decode)
 ist.com.sdk.KRDecodeData       ← QR码解码数据（不是实时血糖）
 ist.com.sdk.DataInput/Output   ← 算法 I/O
-com.yuwell.cgm.utils.ProtocolToolsHolder_CT5 ← CT5 协议
+com.yuwell.cgm.utils.ProtocolToolsHolder_CT5 ← 内部以 CT5 命名的协议类
 ```
 
 ### 加密算法提取
@@ -366,7 +368,7 @@ ist.com.sdk.ProtocolTools           协议解析
 ist.com.sdk.DataInput               算法输入 (Iws, Ibs, Ts, K0, R)
 ist.com.sdk.DataOutput              算法输出 (GLU_MG, BGCount, trend, errorCode)
 ist.com.sdk.KRDecodeData            QR/NFC解码
-com.yuwell.cgm.utils.ProtocolToolsHolder_CT5  CT5 TLV解析 + BroadData
+com.yuwell.cgm.utils.ProtocolToolsHolder_CT5  内部 CT5 命名的 TLV 解析 + BroadData
 ```
 
 ## 工具链

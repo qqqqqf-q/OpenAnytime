@@ -1,7 +1,9 @@
-# 鱼跃安耐糖 CT5 (Anytime CGM) 完整逆向文档
+# 鱼跃 5 HSE（安耐糖 / Anytime CGM）完整逆向文档
 
 > 2026-07-31，传感器于 7/30 12:19 初始化，14 天有效期。
 > 问题：手机 App BLE 连接层故障，无法读取数据。通过逆向工程直接从 BLE 广播包解密血糖。
+>
+> 产品实物型号由用户确认为 **5 HSE**。现有逆向记录抄录过 `CT5` 日志字段和类名，但仓库未保留原始 logcat 与反编译产物用于复核，因此不能用这些内部字符串推断产品型号或官方协议名称。
 
 ---
 
@@ -9,6 +11,7 @@
 
 | 项目 | 值 |
 |------|-----|
+| 产品型号 | 鱼跃 5 HSE |
 | 芯片 | Renesas DA14535 |
 | 固件 | V1130_20250618 |
 | 设备名 | Anytime6011016862 |
@@ -118,10 +121,13 @@ Offset  Size   Field
 | MQTT | 鱼跃 IoT |
 
 ### 关键类
+
+现有逆向记录称 App 的日志、数据字段和类名出现过 `CT5` 标识。以下名称为追溯既有分析而保留，仍需用原始 logcat 或 APK 反编译产物复核；它们不是产品型号。
+
 - `ist.com.sdk.AlgorithmTools` — JNI wrapper（`decodeCT`, `algorithm`）
 - `ist.com.sdk.ConvertTools` — 加密/解密（`encode`, `decode`）
 - `ist.com.sdk.ProtocolTools` — 协议解析
-- `com.yuwell.cgm.utils.ProtocolToolsHolder_CT5` — CT5 协议 TLV 解析
+- `com.yuwell.cgm.utils.ProtocolToolsHolder_CT5` — 内部以 `CT5` 命名的 TLV 解析类
 - `ist.com.sdk.DataInput` / `DataOutput` — 算法输入/输出
 - `ist.com.sdk.KRDecodeData` — QR码/NFC解码数据
 
