@@ -1,0 +1,10 @@
+# 原始广播包 (Manufacturer Data, Company ID 0x4743)
+# 格式: 时间 | 完整 hex | RSSI | 解密血糖范围
+
+2026-07-31 ~09:53 | 4d0116a4012e79b8d186472e76472e65b82e6a45d1924472 | -68dBm | 4.3-4.5 mmol/L
+2026-07-31 ~10:05 | 4d0116bf01d151b9d15d92d15192d119922ee66dd11e6f80 | -70dBm | 4.7-4.8 mmol/L
+2026-07-31 ~10:10 | 4d0116c1012eae6d2ee66dd119922ee1902ef590d10191d3 | -75dBm | 4.7-4.8 mmol/L
+
+# 解密参数
+Key: 121 (0x79) = sureClose 字段
+算法: XOR(byte, key) + 左到右 bit flip (right=0→flip left)

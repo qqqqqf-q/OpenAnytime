@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime data contains device identifiers and personal health readings.
+cgm.db
+cgm_*.jsonl
+latest.txt
+*.log
+*.err
