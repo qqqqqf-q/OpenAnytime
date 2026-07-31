@@ -1,5 +1,13 @@
 import { ChartNoAxesCombinedIcon } from "lucide-react"
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import {
   Card,
@@ -27,6 +35,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { Reading } from "@/lib/api"
 
 const RANGE_OPTIONS = [3, 6, 12, 24] as const
+const TARGET_GLUCOSE_RANGE = { min: 3.9, max: 7.8 } as const
 
 const chartConfig = {
   glucose_mmol: {
@@ -150,6 +159,13 @@ export function GlucoseChart({
               data={chartData}
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
             >
+              <ReferenceArea
+                y1={TARGET_GLUCOSE_RANGE.min}
+                y2={TARGET_GLUCOSE_RANGE.max}
+                fill="var(--muted-foreground)"
+                fillOpacity={0.1}
+                stroke="none"
+              />
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="timestamp_ms"
@@ -174,6 +190,28 @@ export function GlucoseChart({
                   (dataMax: number) =>
                     Math.max(12, Math.ceil(Number(dataMax) + 1)),
                 ]}
+              />
+              <ReferenceLine
+                y={TARGET_GLUCOSE_RANGE.min}
+                stroke="transparent"
+                label={{
+                  value: TARGET_GLUCOSE_RANGE.min,
+                  position: "insideRight",
+                  fill: "var(--destructive)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              />
+              <ReferenceLine
+                y={TARGET_GLUCOSE_RANGE.max}
+                stroke="transparent"
+                label={{
+                  value: TARGET_GLUCOSE_RANGE.max,
+                  position: "insideRight",
+                  fill: "var(--glucose-high-label)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
               />
               <ChartTooltip
                 cursor={false}
