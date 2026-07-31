@@ -31,47 +31,86 @@ from openanytime.storage import initialize_database
 
 logger = logging.getLogger("build_official_db")
 
-# 广播 counter → glucoseId 的每 flag 偏移(2026-07-31 取值锚定法测定,
-# 详见 docs/history-backfill.md §4)。换传感器/换会话后必须重新测定,
-# 锚点校验会在偏移漂移时拦截。
-FLAG_OFFSET = {1: 5371, 2: 5115}
+# 广播 counter → glucoseId 的每 flag 偏移,经环境变量 OPENANYTIME_FLAG_OFFSETS
+# 配置(格式 "1:5371,2:5115")。这是每个传感器会话的私有常量,必须用
+# 取值锚定法实测(见 docs/history-backfill.md §4);不设置则广播行无法
+# 映射回 gid,官方库只含历史行(滞后到最近一次 backfill,但不出错值)。
+# 锚点校验经 OPENANYTIME_ANCHOR 配置(格式 "233:116",官方 App 真值
+# id:mg/dL);不设置则跳过校验(仅告警),设置后校验失败拒绝替换。
+FLAG_OFFSETS_ENV = "OPENANYTIME_FLAG_OFFSETS"
+ANCHOR_ENV = "OPENANYTIME_ANCHOR"
 
-# 锚点:凌晨官方 App 真值 id 233 → 6.4 mmol/L(116 mg/dL)。±2 mg 容差
-# 覆盖输入电流广播/历史通道 ±0.05 的量化差。
-ANCHOR_ID, ANCHOR_MG, ANCHOR_TOLERANCE = 233, 116, 2
+
+def _parse_flag_offsets(raw: str | None) -> dict[int, int]:
+    if not raw:
+        return {}
+    offsets: dict[int, int] = {}
+    for part in raw.split(","):
+        flag, _, offset = part.strip().partition(":")
+        offsets[int(flag)] = int(offset)
+    return offsets
 
 
-def _row_to_gid(reading_index: int) -> int:
+def _parse_anchor(raw: str | None) -> tuple[int, int] | None:
+    if not raw:
+        return None
+    gid, _, mg = raw.strip().partition(":")
+    return int(gid), int(mg)
+
+
+def _row_to_gid(reading_index: int, offsets: dict[int, int]) -> int | None:
     if reading_index >= 100_000:
         flag = reading_index // 100_000
-        return reading_index % 100_000 - FLAG_OFFSET[flag]
-    return reading_index - FLAG_OFFSET[1]
+        if flag not in offsets:
+            return None
+        return reading_index % 100_000 - offsets[flag]
+    if 1 not in offsets:
+        return None
+    return reading_index - offsets[1]
 
 
-def _load_readings(source: Path) -> dict[int, sqlite3.Row]:
+def _load_readings(source: Path, offsets: dict[int, int]) -> dict[int, sqlite3.Row]:
     connection = sqlite3.connect(f"file:{source}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
         by_gid: dict[int, sqlite3.Row] = {}
+        skipped_broadcast = 0
         for row in connection.execute(
             "SELECT counter, reading_index, glucose_mmol, temperature_c, rssi "
             "FROM readings"
         ):
-            gid = (
-                row["reading_index"]
-                if row["counter"] == -1
-                else _row_to_gid(row["reading_index"])
-            )
+            if row["counter"] == -1:
+                gid = row["reading_index"]
+            else:
+                mapped = _row_to_gid(row["reading_index"], offsets)
+                if mapped is None:
+                    skipped_broadcast += 1
+                    continue
+                gid = mapped
             # 历史行优先(真网格 Iw);广播行仅补缺
             if gid not in by_gid or row["counter"] == -1:
                 by_gid[gid] = row
+        if skipped_broadcast:
+            logger.warning(
+                "no %s configured; skipped %d broadcast rows "
+                "(official db will lag behind live edge)",
+                FLAG_OFFSETS_ENV,
+                skipped_broadcast,
+            )
         return by_gid
     finally:
         connection.close()
 
 
-def rebuild(source: Path, target: Path, init_time: datetime) -> int:
-    by_gid = _load_readings(source)
+def rebuild(
+    source: Path,
+    target: Path,
+    init_time: datetime,
+    *,
+    offsets: dict[int, int],
+    anchor: tuple[int, int] | None,
+) -> int:
+    by_gid = _load_readings(source, offsets)
     if not by_gid:
         raise RuntimeError(f"no readings in {source}")
     max_gid = max(by_gid)
@@ -94,12 +133,17 @@ def rebuild(source: Path, target: Path, init_time: datetime) -> int:
 
     glu_mg = compute_official_glucose(readings)
 
-    anchor = glu_mg.get(ANCHOR_ID)
-    if anchor is None or abs(anchor - ANCHOR_MG) > ANCHOR_TOLERANCE:
-        raise RuntimeError(
-            f"anchor check failed: id {ANCHOR_ID} = {anchor} mg/dL, "
-            f"expected {ANCHOR_MG}±{ANCHOR_TOLERANCE}"
-        )
+    if anchor is not None:
+        anchor_id, anchor_mg = anchor
+        # ±2 mg 容差覆盖输入电流广播/历史通道 ±0.05 的量化差
+        actual = glu_mg.get(anchor_id)
+        if actual is None or abs(actual - anchor_mg) > 2:
+            raise RuntimeError(
+                f"anchor check failed: id {anchor_id} = {actual} mg/dL, "
+                f"expected {anchor_mg}±2"
+            )
+    else:
+        logger.warning("no %s configured; anchor check skipped", ANCHOR_ENV)
 
     temp_target = target.with_suffix(".building")
     temp_target.unlink(missing_ok=True)
@@ -162,7 +206,13 @@ def main() -> int:
         init_time = init_time.replace(tzinfo=timezone(timedelta(hours=8)))
 
     try:
-        inserted = rebuild(source, target, init_time)
+        inserted = rebuild(
+            source,
+            target,
+            init_time,
+            offsets=_parse_flag_offsets(os.environ.get(FLAG_OFFSETS_ENV)),
+            anchor=_parse_anchor(os.environ.get(ANCHOR_ENV)),
+        )
     except Exception as exc:
         logger.error("rebuild failed, previous official db kept: %s", exc)
         return 1

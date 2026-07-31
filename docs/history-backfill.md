@@ -127,7 +127,7 @@ more than 18 minutes")→ 发起 GATT 连接 → 拉取缺失段 → 断开继�
 配置(launchd plist EnvironmentVariables):
 
 ```
-OPENANYTIME_KEY=121                 # 广播/历史 cipher(sureClose)
+OPENANYTIME_KEY=<sureClose>          # 广播/历史 cipher(设备专属,勿提交真实值)
 OPENANYTIME_DEVICE_NAME=anytime
 OPENANYTIME_TIMEZONE=Asia/Shanghai
 OPENANYTIME_INIT_TIME=2026-07-30T12:19:00   # 每传感器,换传感器必须更新
