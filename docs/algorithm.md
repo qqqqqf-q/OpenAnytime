@@ -60,7 +60,7 @@ flag 偏移 5371/5115 映射补缺)→ 全量回放算法 → 写 `cgm-official.
 
 | 需要什么 | 怎么获得 |
 |---|---|
-| `libalgorithm_jni_1_29_0_0.so` | 从官方 APK 解包(`lib/arm64-v8a/` 下),放到 `~/Library/Application Support/cgm-data/native/`,或设 `OPENANYTIME_NATIVE_LIB` |
+| `libalgorithm_jni_1_29_0_0.so` | 从**你合法获得的**官方 APK 自行解包(`lib/arm64-v8a/` 下),仅供你所在法域允许的互操作研究使用;不得索取或传播该文件。放到 `~/Library/Application Support/cgm-data/native/`,或设 `OPENANYTIME_NATIVE_LIB` |
 | `OPENANYTIME_INIT_TIME` | 每传感器的会话起点。由官方 App logcat 锚定(找到任一 glucoseId 的显示时刻,回推 `(id+1)×3min`)。没有它,网格时间戳不可用 |
 | `OPENANYTIME_FLAG_OFFSETS` | 格式 `"1:5371,2:5115"`。测定:对同时有广播行和历史行的时段,在 ±3 槽内按 (血糖, 温度) 匹配投票 `counter − glucoseId`(取值锚定法,见 history-backfill.md §4)。不设置:广播行跳过,官方库只含历史行(滞后到最近一次 backfill) |
 | `OPENANYTIME_ANCHOR` | 格式 `"233:116"`(任一 id + 官方 App 同刻显示值换算 mg/dL)。设置后每次重建校验,失败拒绝替换;不设置仅告警 |
