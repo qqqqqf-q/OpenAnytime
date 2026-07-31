@@ -1,12 +1,5 @@
 import { ChartNoAxesCombinedIcon } from "lucide-react"
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ReferenceArea,
-  XAxis,
-  YAxis,
-} from "recharts"
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
 import {
   Card,
@@ -42,14 +35,14 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-function formatAxisTime(timestamp: string) {
+function formatAxisTime(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString("zh-CN", {
     hour: "2-digit",
     minute: "2-digit",
   })
 }
 
-function formatTooltipTime(timestamp: string) {
+function formatTooltipTime(timestamp: number) {
   return new Date(timestamp).toLocaleString("zh-CN", {
     month: "numeric",
     day: "numeric",
@@ -61,6 +54,7 @@ function formatTooltipTime(timestamp: string) {
 type GlucoseChartProps = {
   readings: Reading[]
   rangeHours: number
+  windowEnd: number | null
   loading: boolean
   onRangeChange: (rangeHours: number) => void
 }
@@ -104,16 +98,30 @@ function RangeToggle({
 export function GlucoseChart({
   readings,
   rangeHours,
+  windowEnd,
   loading,
   onRangeChange,
 }: GlucoseChartProps) {
+  // A categorical timestamp axis stretches sparse samples across the card. A
+  // numeric domain keeps the selected range tied to actual wall-clock time.
+  const chartData = readings
+    .map((reading) => ({
+      ...reading,
+      timestamp_ms: new Date(reading.timestamp).getTime(),
+    }))
+    .filter((reading) => Number.isFinite(reading.timestamp_ms))
+  const domainEnd = windowEnd ?? chartData.at(-1)?.timestamp_ms ?? 0
+  const domainStart = domainEnd - rangeHours * 60 * 60_000
+  const axisTicks = Array.from(
+    { length: 7 },
+    (_, index) => domainStart + ((domainEnd - domainStart) * index) / 6
+  )
+
   return (
     <Card className="@container/card">
       <CardHeader>
         <CardTitle>血糖趋势</CardTitle>
-        <CardDescription>
-          最近 {rangeHours} 小时，参考范围 3.9–7.8 mmol/L
-        </CardDescription>
+        <CardDescription>最近 {rangeHours} 小时</CardDescription>
         <CardAction>
           <RangeToggle
             rangeHours={rangeHours}
@@ -137,32 +145,23 @@ export function GlucoseChart({
             config={chartConfig}
             className="aspect-auto h-[280px] w-full sm:h-[340px]"
           >
-            <AreaChart
+            <LineChart
               accessibilityLayer
-              data={readings}
+              data={chartData}
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
             >
-              <defs>
-                <linearGradient id="fillGlucose" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="var(--color-glucose_mmol)"
-                    stopOpacity={0.35}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="var(--color-glucose_mmol)"
-                    stopOpacity={0.03}
-                  />
-                </linearGradient>
-              </defs>
               <CartesianGrid vertical={false} />
               <XAxis
-                dataKey="timestamp"
+                dataKey="timestamp_ms"
+                type="number"
+                scale="time"
+                domain={[domainStart, domainEnd]}
+                allowDataOverflow
                 tickLine={false}
                 axisLine={false}
                 tickMargin={10}
                 minTickGap={40}
+                ticks={axisTicks}
                 tickFormatter={formatAxisTime}
               />
               <YAxis
@@ -176,32 +175,30 @@ export function GlucoseChart({
                     Math.max(12, Math.ceil(Number(dataMax) + 1)),
                 ]}
               />
-              <ReferenceArea
-                y1={3.9}
-                y2={7.8}
-                fill="var(--muted-foreground)"
-                fillOpacity={0.08}
-                stroke="transparent"
-              />
               <ChartTooltip
                 cursor={false}
                 content={
                   <ChartTooltipContent
                     indicator="line"
-                    labelFormatter={(label) => formatTooltipTime(String(label))}
+                    labelFormatter={(_, payload) => {
+                      const timestamp = payload[0]?.payload?.timestamp_ms
+                      return typeof timestamp === "number"
+                        ? formatTooltipTime(timestamp)
+                        : ""
+                    }}
                   />
                 }
               />
-              <Area
+              <Line
                 dataKey="glucose_mmol"
-                type="natural"
-                fill="url(#fillGlucose)"
+                type="monotone"
                 stroke="var(--color-glucose_mmol)"
                 strokeWidth={2}
+                dot={false}
                 activeDot={{ r: 4 }}
                 isAnimationActive={false}
               />
-            </AreaChart>
+            </LineChart>
           </ChartContainer>
         ) : (
           <Empty className="min-h-[280px]">

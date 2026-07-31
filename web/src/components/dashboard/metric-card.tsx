@@ -4,7 +4,6 @@ import {
   Card,
   CardAction,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -14,8 +13,6 @@ type MetricCardProps = {
   label: string
   value: string
   unit: string
-  summary: ReactNode
-  description: string
   action?: ReactNode
   loading: boolean
 }
@@ -24,8 +21,6 @@ export function MetricCard({
   label,
   value,
   unit,
-  summary,
-  description,
   action,
   loading,
 }: MetricCardProps) {
@@ -45,12 +40,6 @@ export function MetricCard({
         )}
         {action ? <CardAction>{action}</CardAction> : null}
       </CardHeader>
-      <CardFooter className="flex-col items-start gap-1.5 text-sm">
-        <div className="line-clamp-1 flex items-center gap-2 font-medium">
-          {summary}
-        </div>
-        <div className="text-muted-foreground">{description}</div>
-      </CardFooter>
     </Card>
   )
 }

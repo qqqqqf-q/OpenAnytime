@@ -38,18 +38,6 @@ function formatTableTime(timestamp: string) {
   })
 }
 
-function getRangeBadge(glucose: number) {
-  if (glucose < 3.9) {
-    return <Badge variant="destructive">偏低</Badge>
-  }
-
-  if (glucose > 7.8) {
-    return <Badge variant="outline">偏高</Badge>
-  }
-
-  return <Badge variant="secondary">目标内</Badge>
-}
-
 type ReadingsTableProps = {
   readings: Reading[]
   loading: boolean
@@ -81,8 +69,6 @@ export function ReadingsTable({ readings, loading }: ReadingsTableProps) {
                 <TableHead>时间</TableHead>
                 <TableHead>编号</TableHead>
                 <TableHead>血糖</TableHead>
-                <TableHead className="hidden sm:table-cell">mg/dL</TableHead>
-                <TableHead>状态</TableHead>
                 <TableHead className="hidden md:table-cell">温度</TableHead>
                 <TableHead className="hidden lg:table-cell">信号</TableHead>
               </TableRow>
@@ -99,10 +85,6 @@ export function ReadingsTable({ readings, loading }: ReadingsTableProps) {
                   <TableCell className="font-medium tabular-nums">
                     {reading.glucose_mmol.toFixed(1)}
                   </TableCell>
-                  <TableCell className="hidden tabular-nums sm:table-cell">
-                    {reading.glucose_mg}
-                  </TableCell>
-                  <TableCell>{getRangeBadge(reading.glucose_mmol)}</TableCell>
                   <TableCell className="hidden tabular-nums md:table-cell">
                     {reading.temperature_c.toFixed(1)} °C
                   </TableCell>
