@@ -38,6 +38,8 @@ const GlucoseChart = React.lazy(() =>
   }))
 )
 
+type TimeRange = { start: number; end: number }
+
 const REFRESH_INTERVAL_MS = 60_000
 const STALE_AFTER_MS = 10 * 60_000
 
@@ -82,6 +84,7 @@ function getTrendDelta(readings: Reading[]) {
 export function App() {
   const { setTheme } = useTheme()
   const [rangeHours, setRangeHours] = React.useState(3)
+  const [customRange, setCustomRange] = React.useState<TimeRange | null>(null)
   const [readings, setReadings] = React.useState<Reading[]>([])
   const [isInitialLoading, setIsInitialLoading] = React.useState(true)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
@@ -143,13 +146,26 @@ export function App() {
     if (!refreshedAt) {
       return []
     }
+    if (customRange) {
+      return readings.filter((reading) => {
+        const timestamp = new Date(reading.timestamp).getTime()
+        return (
+          Number.isFinite(timestamp) &&
+          timestamp >= customRange.start &&
+          timestamp <= customRange.end
+        )
+      })
+    }
+    if (rangeHours === 0) {
+      return readings
+    }
 
     const since = refreshedAt.getTime() - rangeHours * 60 * 60_000
     return readings.filter((reading) => {
       const timestamp = new Date(reading.timestamp).getTime()
       return Number.isFinite(timestamp) && timestamp >= since
     })
-  }, [rangeHours, readings, refreshedAt])
+  }, [rangeHours, customRange, readings, refreshedAt])
 
   const latest = readings.at(-1) ?? null
   const connection = getConnectionState(latest, refreshedAt)
@@ -264,9 +280,14 @@ export function App() {
                 <GlucoseChart
                   readings={visibleReadings}
                   rangeHours={rangeHours}
+                  customRange={customRange}
                   windowEnd={refreshedAt?.getTime() ?? null}
                   loading={isInitialLoading}
-                  onRangeChange={setRangeHours}
+                  onRangeChange={(hours) => {
+                    setRangeHours(hours)
+                    setCustomRange(null)
+                  }}
+                  onCustomRangeChange={setCustomRange}
                 />
               </React.Suspense>
             </section>
@@ -297,7 +318,12 @@ export function App() {
           <footer className="flex flex-col justify-between gap-1 px-4 text-xs text-muted-foreground sm:flex-row lg:px-6">
             <span>逆向研究数据，不用于医疗诊断。</span>
             <span>
-              {visibleReadings.length} 条记录 · 最近 {rangeHours} 小时
+              {visibleReadings.length} 条记录 ·{" "}
+              {customRange
+                ? "自定义范围"
+                : rangeHours === 0
+                  ? "全部"
+                  : `最近 ${rangeHours} 小时`}
             </span>
           </footer>
         </div>
