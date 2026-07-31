@@ -246,7 +246,7 @@ export function App() {
           ) : null}
 
           <section
-            className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card"
+            className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @5xl/main:grid-cols-3 dark:*:data-[slot=card]:bg-card"
             aria-label="监测概览"
           >
             <MetricCard
@@ -257,7 +257,7 @@ export function App() {
               loading={isInitialLoading}
             />
             <section
-              className="order-2 @5xl/main:order-5 @5xl/main:col-span-4"
+              className="order-2 @5xl/main:order-4 @5xl/main:col-span-3"
               aria-label="血糖趋势图"
             >
               <React.Suspense fallback={<ChartFallback />}>
@@ -272,20 +272,13 @@ export function App() {
             </section>
             <MetricCard
               className="order-3 @5xl/main:order-2"
-              label="血糖换算"
-              value={latest?.glucose_mg.toString() ?? "--"}
-              unit="mg/dL"
-              loading={isInitialLoading}
-            />
-            <MetricCard
-              className="order-4 @5xl/main:order-3"
               label="传感器温度"
               value={latest?.temperature_c.toFixed(1) ?? "--"}
               unit="°C"
               loading={isInitialLoading}
             />
             <MetricCard
-              className="order-5 @5xl/main:order-4"
+              className="order-4 @5xl/main:order-3"
               label="BLE 信号"
               value={latest?.rssi?.toString() ?? "--"}
               unit="dBm"
