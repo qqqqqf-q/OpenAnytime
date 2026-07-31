@@ -7,6 +7,12 @@
 >
 > 本项目是未经认证的逆向研究工具，不用于医疗诊断或治疗决策。协议末尾校验算法尚未确认，界面展示的是现有证据支持的解码结果。
 
+## 文档
+
+- [docs/algorithm.md](docs/algorithm.md) — 官方血糖算法的本地执行（Unicorn 模拟器）与官方口径数据管线（18520 主页面）。**最新成果以此为准。**
+- [docs/history-backfill.md](docs/history-backfill.md) — GATT 历史回补通道协议（0x37 拉取）、字段语义（Iw ≡ 广播值，官方显示 = 私有算法）、backfill 实现与部署。
+- [docs/TIMELINE.md](docs/TIMELINE.md) — 2026-07-31 逆向全记录（广播协议破解过程）。
+
 ---
 
 ## 硬件
@@ -35,6 +41,9 @@
 | 连接方式 | BLE bonding + 定向广播 + 隐私地址轮换 |
 
 ### GATT Services
+
+> 2026-07-31 更正:真正的工作数据通道是 `0x1000` service(曾标注为 Nordic DFU
+> 而忽略),FEF5 不承载业务数据。详见 [docs/history-backfill.md](docs/history-backfill.md)。
 
 ```
 0x180A Device Information:
