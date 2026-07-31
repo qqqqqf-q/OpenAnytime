@@ -157,7 +157,7 @@ export function GlucoseChart({
             <LineChart
               accessibilityLayer
               data={chartData}
-              margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+              margin={{ top: 8, right: 36, bottom: 0, left: 0 }}
             >
               <ReferenceArea
                 y1={TARGET_GLUCOSE_RANGE.min}
@@ -196,7 +196,8 @@ export function GlucoseChart({
                 stroke="transparent"
                 label={{
                   value: TARGET_GLUCOSE_RANGE.min,
-                  position: "insideRight",
+                  position: "right",
+                  offset: 6,
                   fill: "var(--destructive)",
                   fontSize: 12,
                   fontWeight: 600,
@@ -207,7 +208,8 @@ export function GlucoseChart({
                 stroke="transparent"
                 label={{
                   value: TARGET_GLUCOSE_RANGE.max,
-                  position: "insideRight",
+                  position: "right",
+                  offset: 6,
                   fill: "var(--glucose-high-label)",
                   fontSize: 12,
                   fontWeight: 600,
