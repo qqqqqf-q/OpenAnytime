@@ -39,7 +39,7 @@ flag 偏移 5371/5115 映射补缺)→ 全量回放算法 → 写 `cgm-official.
 
 | 端口 | 进程 | 数据 |
 |---|---|---|
-| 18520 | Vite dev(0.0.0.0,代理 /api→8520) | **主页面:官方算法口径** |
+| 18520 | launchd `com.qqqqqf.cgm-web`(repo `server.py` + dist,0.0.0.0) | **主页面:官方算法口径** |
 | 8520 | launchd `com.qqqqqf.cgm-server`(repo `server.py`) | cgm-official.db(只读 API) |
 | 18522 | nohup `server.py`(0.0.0.0) | **对比页:原始 Iw 口径**(cgm.db) |
 | — | launchd `com.qqqqqf.cgm-monitor` | 广播监听 + 每小时 GATT backfill → cgm.db |
