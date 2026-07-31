@@ -114,7 +114,7 @@ function getSignalLabel(rssi: number | null | undefined) {
 
 export function App() {
   const { setTheme } = useTheme()
-  const [rangeHours, setRangeHours] = React.useState(24)
+  const [rangeHours, setRangeHours] = React.useState(3)
   const [readings, setReadings] = React.useState<Reading[]>([])
   const [isInitialLoading, setIsInitialLoading] = React.useState(true)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
