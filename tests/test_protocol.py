@@ -27,8 +27,21 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(PacketDecodeError):
             decode_packet(packet, 121)
 
+    def test_flag_two_packet_decodes_with_same_record_format(self):
+        # Captured on a live sensor 2026-07-31; both flags carry identical
+        # 6x3-byte records, with independent counter series per flag.
+        packet = decode_packet(
+            bytes.fromhex("4d011668022bda63d4299d2bd1952e9591d15d942eb5919d"), 121
+        )
+        self.assertEqual(packet.flag, 2)
+        self.assertEqual(packet.counter, 5736)
+        self.assertEqual(
+            [record.glucose_mmol for record in packet.records],
+            [5.2, 5.2, 5.1, 5.0, 4.8, 4.9],
+        )
+
     def test_rejects_unknown_flag(self):
-        packet = SAMPLE[:4] + bytes([2]) + SAMPLE[5:]
+        packet = SAMPLE[:4] + bytes([3]) + SAMPLE[5:]
         with self.assertRaises(PacketDecodeError):
             decode_packet(packet, 121)
 

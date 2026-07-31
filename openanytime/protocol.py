@@ -7,7 +7,13 @@ from typing import Tuple
 
 MANUFACTURER_ID = 0x4743
 PACKET_HEADER = b"\x4d\x01"
-DATA_PACKET_FLAG = 0x01
+# Both flags have been observed on a live sensor carrying the identical
+# 6x3-byte record format. The flag's semantics are unknown; what matters is
+# that each flag carries its OWN counter series (the device switched from
+# flag 0x01 to 0x02 mid-session on 2026-07-31, and the counters of the two
+# series differ by a constant offset). Callers must treat (flag, counter),
+# never counter alone, as the packet identity.
+DATA_PACKET_FLAGS = (0x01, 0x02)
 PACKET_LENGTH = 24
 ENCRYPTED_PAYLOAD_LENGTH = 18
 RECORD_LENGTH = 3
@@ -90,7 +96,7 @@ def decode_packet(raw: bytes, key: int) -> DecodedPacket:
         raise PacketDecodeError(f"manufacturer payload must be {PACKET_LENGTH} bytes")
     if raw[:2] != PACKET_HEADER:
         raise PacketDecodeError(f"unexpected packet header: {raw[:2].hex()}")
-    if raw[4] != DATA_PACKET_FLAG:
+    if raw[4] not in DATA_PACKET_FLAGS:
         raise PacketDecodeError(f"unsupported packet flag: {raw[4]}")
 
     counter = int.from_bytes(raw[2:4], "big")

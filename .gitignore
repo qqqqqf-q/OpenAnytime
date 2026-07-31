@@ -14,3 +14,6 @@ latest.txt
 # Local browser QA artifacts.
 output/
 .playwright-cli/
+
+# Python build artifacts
+*.egg-info/

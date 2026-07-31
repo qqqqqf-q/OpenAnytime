@@ -5,8 +5,9 @@ from __future__ import annotations
 import math
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -48,6 +49,39 @@ def _environment_int(name: str, fallback: int) -> int:
         raise ConfigurationError(f"{name} must be an integer") from exc
 
 
+def _environment_init_time(
+    raw: Optional[str], timezone: ZoneInfo
+) -> Optional[datetime]:
+    if raw is None or not raw.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.strip())
+    except ValueError as exc:
+        raise ConfigurationError(
+            "OPENANYTIME_INIT_TIME must be ISO 8601, e.g. 2026-07-30T12:19:00"
+        ) from exc
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone)
+    return parsed.astimezone(timezone)
+
+
+def _environment_random_b(raw: Optional[str]) -> Optional[Tuple[int, int, int, int]]:
+    if raw is None or not raw.strip():
+        return None
+    parts = raw.strip().split(",")
+    if len(parts) != 4:
+        raise ConfigurationError(
+            "OPENANYTIME_RANDOM_B must be four comma-separated bytes, e.g. 0,0,0,0"
+        )
+    try:
+        values = tuple(int(part) for part in parts)
+    except ValueError as exc:
+        raise ConfigurationError("OPENANYTIME_RANDOM_B must contain integers") from exc
+    if any(not 0 <= value <= 255 for value in values):
+        raise ConfigurationError("OPENANYTIME_RANDOM_B bytes must be between 0 and 255")
+    return values  # type: ignore[return-value]
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:
     db_path: Path
@@ -57,6 +91,15 @@ class RuntimeConfig:
     scan_timeout: float
     scan_interval: float
     reading_interval_seconds: int
+    # Session init time anchors the history channel's glucoseId -> timestamp
+    # mapping (time = init + (id + 1) * interval). It is per-sensor and
+    # cannot be discovered over BLE with the commands known so far, so it is
+    # configured explicitly; without it, backfill stays disabled.
+    init_time: Optional[datetime] = None
+    backfill_interval_seconds: float = 3600.0
+    # Account-derived checkId credential. None means "try all zeros", which
+    # only works while the sensor is unbound.
+    random_b: Optional[Tuple[int, int, int, int]] = None
 
     def validate(self) -> "RuntimeConfig":
         if not 0 <= self.key <= 255:
@@ -69,6 +112,10 @@ class RuntimeConfig:
             raise ConfigurationError("scan interval must be greater than zero")
         if self.reading_interval_seconds <= 0:
             raise ConfigurationError("reading interval must be greater than zero")
+        if not math.isfinite(self.backfill_interval_seconds) or (
+            self.backfill_interval_seconds <= 0
+        ):
+            raise ConfigurationError("backfill interval must be greater than zero")
         return self
 
 
@@ -120,5 +167,12 @@ def load_runtime_config(
         reading_interval_seconds=_environment_int(
             "OPENANYTIME_READING_INTERVAL", 180
         ),
+        init_time=_environment_init_time(
+            os.environ.get("OPENANYTIME_INIT_TIME"), timezone
+        ),
+        backfill_interval_seconds=_environment_float(
+            "OPENANYTIME_BACKFILL_INTERVAL", 3600.0
+        ),
+        random_b=_environment_random_b(os.environ.get("OPENANYTIME_RANDOM_B")),
     )
     return config.validate()
