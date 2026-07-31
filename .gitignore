@@ -10,3 +10,7 @@ cgm_*.jsonl
 latest.txt
 *.log
 *.err
+
+# Local browser QA artifacts.
+output/
+.playwright-cli/

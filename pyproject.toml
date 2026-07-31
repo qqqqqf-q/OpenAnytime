@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openanytime"
+version = "0.1.0"
+description = "Local reverse-engineering tools for the Yuwell 5 HSE CGM"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "bleak>=1.1,<4",
+]
+
+[tool.setuptools.packages.find]
+include = ["openanytime*"]
