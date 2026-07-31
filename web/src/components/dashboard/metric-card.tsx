@@ -8,11 +8,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 type MetricCardProps = {
   label: string
   value: string
   unit: string
+  className?: string
   action?: ReactNode
   loading: boolean
 }
@@ -21,11 +23,12 @@ export function MetricCard({
   label,
   value,
   unit,
+  className,
   action,
   loading,
 }: MetricCardProps) {
   return (
-    <Card className="@container/card">
+    <Card className={cn("@container/card", className)}>
       <CardHeader>
         <CardDescription>{label}</CardDescription>
         {loading ? (
