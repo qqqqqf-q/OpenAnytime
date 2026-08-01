@@ -7,13 +7,14 @@ from typing import Tuple
 
 MANUFACTURER_ID = 0x4743
 PACKET_HEADER = b"\x4d\x01"
-# Both flags have been observed on a live sensor carrying the identical
-# 6x3-byte record format. The flag's semantics are unknown; what matters is
-# that each flag carries its OWN counter series (the device switched from
-# flag 0x01 to 0x02 mid-session on 2026-07-31, and the counters of the two
-# series differ by a constant offset). Callers must treat (flag, counter),
-# never counter alone, as the packet identity.
-DATA_PACKET_FLAGS = (0x01, 0x02)
+# Flags 0x01/0x02/0x03 have all been observed on a live sensor carrying the
+# identical 6x3-byte record format. The flag's semantics are unknown; what
+# matters is that each flag carries its OWN counter series — the device
+# switched 0x01 → 0x02 (2026-07-31) → 0x03 (2026-08-01) mid-session, and
+# rejecting the new flag takes the whole broadcast path down until the
+# parser is updated. Callers must treat (flag, counter), never counter
+# alone, as the packet identity.
+DATA_PACKET_FLAGS = (0x01, 0x02, 0x03)
 PACKET_LENGTH = 24
 ENCRYPTED_PAYLOAD_LENGTH = 18
 RECORD_LENGTH = 3
