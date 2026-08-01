@@ -53,8 +53,21 @@ class ProtocolTests(unittest.TestCase):
             [8.7, 8.3, 8.0, 7.7, 7.4, 7.2],
         )
 
+    def test_flag_four_packet_decodes_with_same_record_format(self):
+        # Captured on a live sensor 2026-08-01 after the switch to flag 0x04;
+        # identical format, own counter series.
+        packet = decode_packet(
+            bytes.fromhex("4d01163b042a9e70d56272d56d8dd56e70282e7328367352"), 121
+        )
+        self.assertEqual(packet.flag, 4)
+        self.assertEqual(packet.counter, 5691)
+        self.assertEqual(
+            [record.glucose_mmol for record in packet.records],
+            [7.6, 7.6, 7.5, 7.5, 7.7, 7.8],
+        )
+
     def test_rejects_unknown_flag(self):
-        packet = SAMPLE[:4] + bytes([9]) + SAMPLE[5:]
+        packet = SAMPLE[:4] + bytes([0x10]) + SAMPLE[5:]
         with self.assertRaises(PacketDecodeError):
             decode_packet(packet, 121)
 

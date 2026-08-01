@@ -7,14 +7,18 @@ from typing import Tuple
 
 MANUFACTURER_ID = 0x4743
 PACKET_HEADER = b"\x4d\x01"
-# Flags 0x01/0x02/0x03 have all been observed on a live sensor carrying the
-# identical 6x3-byte record format. The flag's semantics are unknown; what
-# matters is that each flag carries its OWN counter series — the device
-# switched 0x01 → 0x02 (2026-07-31) → 0x03 (2026-08-01) mid-session, and
-# rejecting the new flag takes the whole broadcast path down until the
-# parser is updated. Callers must treat (flag, counter), never counter
-# alone, as the packet identity.
-DATA_PACKET_FLAGS = (0x01, 0x02, 0x03)
+# Flags observed on a live sensor increment each time the device switches
+# counter series: 0x01 → 0x02 (2026-07-31) → 0x03 (2026-08-01 凌晨)
+# → 0x04 (2026-08-01 下午), all carrying the identical 6x3-byte record
+# format under the same cipher. The flag's semantics are unknown; what
+# matters is that each flag carries its OWN counter series. Accepting a
+# bounded range instead of enumerated values: two production outages were
+# caused by the parser rejecting the just-switched flag, and the increment
+# pattern makes the next switch a certainty. The range check still rejects
+# garbage (0x00, 0x10+, noise from other devices). Callers must treat
+# (flag, counter), never counter alone, as the packet identity.
+DATA_PACKET_FLAG_MIN = 0x01
+DATA_PACKET_FLAG_MAX = 0x0F
 PACKET_LENGTH = 24
 ENCRYPTED_PAYLOAD_LENGTH = 18
 RECORD_LENGTH = 3
@@ -97,7 +101,7 @@ def decode_packet(raw: bytes, key: int) -> DecodedPacket:
         raise PacketDecodeError(f"manufacturer payload must be {PACKET_LENGTH} bytes")
     if raw[:2] != PACKET_HEADER:
         raise PacketDecodeError(f"unexpected packet header: {raw[:2].hex()}")
-    if raw[4] not in DATA_PACKET_FLAGS:
+    if not DATA_PACKET_FLAG_MIN <= raw[4] <= DATA_PACKET_FLAG_MAX:
         raise PacketDecodeError(f"unsupported packet flag: {raw[4]}")
 
     counter = int.from_bytes(raw[2:4], "big")
