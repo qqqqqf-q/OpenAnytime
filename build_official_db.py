@@ -116,20 +116,24 @@ def rebuild(
     max_gid = max(by_gid)
 
     readings = []
+    last_row = None
     for gid in range(max_gid + 1):
         row = by_gid.get(gid)
-        if row is None:
-            # 缺洞:用前一点的输入保持算法状态连续,但不产出数据点
-            prev = by_gid[gid - 1] if gid > 0 and gid - 1 in by_gid else None
-            if prev is None:
-                continue
-            readings.append(
-                SensorReading(gid, prev["glucose_mmol"], 0.0, prev["temperature_c"])
-            )
+        if row is not None:
+            last_row = row
+        elif last_row is None:
+            # 首个已知 id 之前没有可填充的值。算法从第一个被喂的 id 起
+            # 建立内部计数,实践中 id 0 永远来自 backfill,不会走到这里。
+            continue
         else:
-            readings.append(
-                SensorReading(gid, row["glucose_mmol"], 0.0, row["temperature_c"])
-            )
+            # 缺洞必须用最后已知值前向填充后照样喂——算法的内部调用计数
+            # 与 glucoseId 强绑定,跳 id 不喂会立即进入 err=2(输出恒 0)
+            # 且永不自愈(2026-08-01 事故:连续 3 个缺洞导致官方库
+            # id 1005 起全线 0.0)。重复值本身算法完全耐受。
+            row = last_row
+        readings.append(
+            SensorReading(gid, row["glucose_mmol"], 0.0, row["temperature_c"])
+        )
 
     glu_mg = compute_official_glucose(readings)
 
