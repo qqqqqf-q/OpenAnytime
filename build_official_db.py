@@ -74,7 +74,7 @@ def _load_readings(source: Path, offsets: dict[int, int]) -> dict[int, sqlite3.R
     connection.row_factory = sqlite3.Row
     try:
         by_gid: dict[int, sqlite3.Row] = {}
-        skipped_broadcast = 0
+        skipped_flags: dict[int, int] = {}
         for row in connection.execute(
             "SELECT counter, reading_index, glucose_mmol, temperature_c, rssi "
             "FROM readings"
@@ -84,18 +84,26 @@ def _load_readings(source: Path, offsets: dict[int, int]) -> dict[int, sqlite3.R
             else:
                 mapped = _row_to_gid(row["reading_index"], offsets)
                 if mapped is None:
-                    skipped_broadcast += 1
+                    # 设备切换到新 flag 后、偏移未配置前的过渡窗口。告警必须
+                    # 点名是哪些 flag——「未配置」和「配置不全」是两种处置。
+                    flag = (
+                        row["reading_index"] // 100_000
+                        if row["reading_index"] >= 100_000
+                        else 1
+                    )
+                    skipped_flags[flag] = skipped_flags.get(flag, 0) + 1
                     continue
                 gid = mapped
             # 历史行优先(真网格 Iw);广播行仅补缺
             if gid not in by_gid or row["counter"] == -1:
                 by_gid[gid] = row
-        if skipped_broadcast:
+        if skipped_flags:
             logger.warning(
-                "no %s configured; skipped %d broadcast rows "
-                "(official db will lag behind live edge)",
+                "skipped %d broadcast rows with unconfigured flags %s "
+                "(add their offsets to %s; official db lags live edge meanwhile)",
+                sum(skipped_flags.values()),
+                sorted(skipped_flags),
                 FLAG_OFFSETS_ENV,
-                skipped_broadcast,
             )
         return by_gid
     finally:
