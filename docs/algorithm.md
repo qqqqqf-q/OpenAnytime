@@ -43,6 +43,7 @@ flag 偏移 5371/5115 映射补缺)→ 全量回放算法 → 写 `cgm-official.
 | 8520 | launchd `com.qqqqqf.cgm-server`(repo `server.py`) | cgm-official.db(只读 API) |
 | 18522 | nohup `server.py`(0.0.0.0) | **对比页:原始 Iw 口径**(cgm.db) |
 | — | launchd `com.qqqqqf.cgm-monitor` | 广播监听 + 每小时 GATT backfill → cgm.db |
+| — | launchd `com.qqqqqf.cgm-watchdog` | 每 300s 检查采集停滞,设备在线但无捕获时自动重启 monitor |
 | — | launchd `com.qqqqqf.cgm-official` | 每 180s 重建 cgm-official.db |
 
 官方口径链路:传感器 → monitor → cgm.db → 重建任务 → cgm-official.db
