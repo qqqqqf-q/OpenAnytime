@@ -51,6 +51,26 @@ def _parse_flag_offsets(raw: str | None) -> dict[int, int]:
     return offsets
 
 
+def _offset_for(flag: int, offsets: dict[int, int]) -> int | None:
+    """flag 的 counter→glucoseId 偏移;未配置时按 256 递减公式推导。
+
+    实测规律(flag 1-7 逐次取值锚定验证):offset(flag) = offset(1) − 256×(flag−1)。
+    设备切换 flag 越来越频繁(曾一天两次),等人工补配置意味着官方库
+    在切换后停更数小时;公式已五次应验,自动推导 + 响亮告警是更优解。
+    推导基于 flag 1 的配置值,故 flag 1 必须显式配置;锚点校验(若配置)
+    与存储层取值锚定投票是独立防线。
+    """
+    if flag in offsets:
+        return offsets[flag]
+    base = offsets.get(1)
+    if base is None:
+        return None
+    derived = base - 256 * (flag - 1)
+    if derived <= 0:
+        return None
+    return derived
+
+
 def _parse_anchor(raw: str | None) -> tuple[int, int] | None:
     if not raw:
         return None
@@ -58,15 +78,18 @@ def _parse_anchor(raw: str | None) -> tuple[int, int] | None:
     return int(gid), int(mg)
 
 
-def _row_to_gid(reading_index: int, offsets: dict[int, int]) -> int | None:
+def _row_to_gid(reading_index: int, offsets: dict[int, int]) -> tuple[int | None, bool]:
+    """返回 (gid, 偏移是否为公式推导)。flag 未配置且无法推导时为 (None, _)。"""
     if reading_index >= 100_000:
         flag = reading_index // 100_000
-        if flag not in offsets:
-            return None
-        return reading_index % 100_000 - offsets[flag]
-    if 1 not in offsets:
-        return None
-    return reading_index - offsets[1]
+        offset = _offset_for(flag, offsets)
+        if offset is None:
+            return None, False
+        return reading_index % 100_000 - offset, flag not in offsets
+    offset = offsets.get(1)
+    if offset is None:
+        return None, False
+    return reading_index - offset, False
 
 
 def _load_readings(source: Path, offsets: dict[int, int]) -> dict[int, sqlite3.Row]:
@@ -75,6 +98,7 @@ def _load_readings(source: Path, offsets: dict[int, int]) -> dict[int, sqlite3.R
     try:
         by_gid: dict[int, sqlite3.Row] = {}
         skipped_flags: dict[int, int] = {}
+        derived_flags: set[int] = set()
         for row in connection.execute(
             "SELECT counter, reading_index, glucose_mmol, temperature_c, rssi "
             "FROM readings"
@@ -82,28 +106,35 @@ def _load_readings(source: Path, offsets: dict[int, int]) -> dict[int, sqlite3.R
             if row["counter"] == -1:
                 gid = row["reading_index"]
             else:
-                mapped = _row_to_gid(row["reading_index"], offsets)
+                flag = (
+                    row["reading_index"] // 100_000
+                    if row["reading_index"] >= 100_000
+                    else 1
+                )
+                mapped, derived = _row_to_gid(row["reading_index"], offsets)
                 if mapped is None:
-                    # 设备切换到新 flag 后、偏移未配置前的过渡窗口。告警必须
-                    # 点名是哪些 flag——「未配置」和「配置不全」是两种处置。
-                    flag = (
-                        row["reading_index"] // 100_000
-                        if row["reading_index"] >= 100_000
-                        else 1
-                    )
                     skipped_flags[flag] = skipped_flags.get(flag, 0) + 1
                     continue
                 gid = mapped
+                if derived:
+                    derived_flags.add(flag)
             # 历史行优先(真网格 Iw);广播行仅补缺
             if gid not in by_gid or row["counter"] == -1:
                 by_gid[gid] = row
+        if derived_flags:
+            logger.warning(
+                "flags %s not in %s; using formula-derived offsets "
+                "(offset(1)-256*(flag-1), verified flags 1-7) — verify by "
+                "value anchoring and pin them in the config",
+                sorted(derived_flags),
+                FLAG_OFFSETS_ENV,
+            )
         if skipped_flags:
             logger.warning(
-                "skipped %d broadcast rows with unconfigured flags %s "
-                "(add their offsets to %s; official db lags live edge meanwhile)",
+                "skipped %d broadcast rows with unmappable flags %s "
+                "(official db lags live edge meanwhile)",
                 sum(skipped_flags.values()),
                 sorted(skipped_flags),
-                FLAG_OFFSETS_ENV,
             )
         return by_gid
     finally:
